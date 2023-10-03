@@ -1,0 +1,106 @@
+---
+title: "index"
+author: "Yan Wang"
+date: "2023-10-02"
+output: html_document
+---
+
+```{r setup, echo=TRUE}
+library(here)
+if (!file.exists(here("data", "b_lyrics.RDS"))) {
+    b_lyrics <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-29/beyonce_lyrics.csv")
+    ts_lyrics <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-29/taylor_swift_lyrics.csv")
+    sales <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-09-29/sales.csv")
+
+    # save the files to RDS objects
+    saveRDS(b_lyrics, file = here("data", "b_lyrics.RDS"))
+    saveRDS(ts_lyrics, file = here("data", "ts_lyrics.RDS"))
+    saveRDS(sales, file = here("data", "sales.RDS"))
+}
+b_lyrics <- readRDS(here("data", "b_lyrics.RDS"))
+ts_lyrics <- readRDS(here("data", "ts_lyrics.RDS"))
+sales <- readRDS(here("data", "sales.RDS"))
+```
+
+## Part 1: Explore album sales
+### Part1A
+```{r, echo=TRUE}
+library(tidyverse)
+library(lubridate)
+library(stringr)
+library(forcats)
+sales1 <- mutate(sales, released = str_remove(released, "\\([A-Z]{2}\\)\\[\\d+\\]"))
+sales2 <- mutate(sales1, released = mdy(released))
+sales2$released <- format(sales2$released, "%Y-%m-%d")
+sales3 <- mutate(sales2, country = fct_collapse(country, "Others" = c("AUS", "FR", "CAN", "FRA", "JPN")))
+sales4 <- mutate(sales3, sales = sales/1000000)
+sales5 <- filter(sales4, country %in% c ("US", "UK", "World"))
+print(sales5)
+```
+
+### Part1B
+```{r, echo=TRUE}
+sales6 <- filter(sales5, country == "US")
+sales7 <- mutate(sales6, years_since_release = floor(interval(released, Sys.Date())/duration(num = 1, units = "years")))
+sales7 %>% group_by(artist) %>% summarize(the_most_recent = min(years_since_release), the_most_oldest = max(years_since_release), median_years = median(years_since_release)) %>% print()
+```
+
+### Part1C
+```{r, echo=TRUE}
+sales6 <- sales5 %>% group_by(artist, country) %>% summarize(total_album_sales = sum(sales))
+sales7 <- sales6 %>% group_by(artist) %>% mutate(percentages = total_album_sales / sum(total_album_sales) * 100)
+print(sales7)
+library(ggplot2)
+ggplot(sales7, aes(x = artist, y = percentages, fill = country)) + 
+  geom_col(position = "fill") + 
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Percentages of album sales (in millions) for Beyonce and Taylor Swift", subtitle = "Different countries have different percentages", x = "Artists", y = "Percentages in different counties", fill = "country") + theme_classic() + theme(plot.title = element_text(size = 16, face = "bold"), plot.subtitle = element_text(size = 11, face = "italic"), plot.caption = element_text(size = 16, face = "bold"), legend.position = "right", legend.text = element_text(size = 11), legend.title = element_text(size = 13)) + ThemePark::theme_avatar()
+```
+
+### Part1D:
+```{r}
+sales8 <- sales5 %>% filter(country == "World") %>% arrange(desc(sales)) %>% mutate(title = fct_reorder(title, sales))
+ggplot(sales8, aes(x = sales, y = title, fill = artist)) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "Sales ranking of albums all over the world",
+       subtitle = "Dangerously in Love sold best", 
+       x = "Sales (in millions)",
+       y = "Album Title",
+       fill = "Artist") +
+  theme_classic() +
+  theme(legend.position = "right")
+```
+### Part1E
+```{r, echo=TRUE}
+ggplot(sales5, aes(x = released, y = sales, color = artist)) +
+  geom_point() +
+  facet_wrap(~country, nrow = 3) +
+  labs(
+    title = "Sales of albums over released date",
+    subtitle = "Sales of albums for each artist showing a wive-like pattern",
+    x = "Released data",
+    y = "Sales") +
+  theme_minimal()
+```
+
+## Part 2: Exploring sentiment of lyrics
+### Part2A
+```{r}
+ts_lyrics <- ts_lyrics %>% mutate(line = map(Lyrics, ~str_c(.x, collapse = ""))) 
+ts_lyrics_hello <- filter(str_detect(line, "hello"))
+
+
+filter(str_detect(line, "hello"))
+                
+hello_line_ts <- ts_lyrics_1 %>%
+  filter(str_detect(line, "hello"))
+
+print(hello_line_ts); nrow(hello_line_ts)
+```
+
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
