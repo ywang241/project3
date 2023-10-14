@@ -31,8 +31,7 @@ library(stringr)
 library(forcats)
 sales1 <- mutate(sales, released = str_remove(released, "\\([A-Z]{2}\\)\\[\\d+\\]"))
 sales2 <- mutate(sales1, released = mdy(released))
-sales2$released <- format(sales2$released, "%Y-%m-%d")
-sales3 <- mutate(sales2, country = fct_collapse(country, "Others" = c("AUS", "FR", "CAN", "FRA", "JPN")))
+sales3 <- mutate(sales2, country = fct_collapse(country, "World" = c("World", "WW"), "FRA" = c("FRA", "FR")))
 sales4 <- mutate(sales3, sales = sales/1000000)
 sales5 <- filter(sales4, country %in% c ("US", "UK", "World"))
 print(sales5)
@@ -42,33 +41,35 @@ print(sales5)
 ```{r, echo=TRUE}
 sales6 <- filter(sales5, country == "US")
 sales7 <- mutate(sales6, years_since_release = floor(interval(released, Sys.Date())/duration(num = 1, units = "years")))
-sales7 %>% group_by(artist) %>% summarize(the_most_recent = min(years_since_release), the_most_oldest = max(years_since_release), median_years = median(years_since_release)) %>% print()
+sales7 %>% group_by(artist) %>% summarize(most_recent = min(years_since_release), most_oldest = max(years_since_release), median_years = median(years_since_release)) %>% print()
 ```
 
 ### Part1C
 ```{r, echo=TRUE}
-sales6 <- sales5 %>% group_by(artist, country) %>% summarize(total_album_sales = sum(sales))
+sales6 <- sales5 %>% group_by(artist, country) %>% summarize(total_album_sales = sum(sales)) %>% print()
 sales7 <- sales6 %>% group_by(artist) %>% mutate(percentages = total_album_sales / sum(total_album_sales) * 100)
 print(sales7)
 library(ggplot2)
 ggplot(sales7, aes(x = artist, y = percentages, fill = country)) + 
   geom_col(position = "fill") + 
   scale_y_continuous(labels = scales::percent) +
-  labs(title = "Percentages of album sales (in millions) for Beyonce and Taylor Swift", subtitle = "Different countries have different percentages", x = "Artists", y = "Percentages in different counties", fill = "country") + theme_classic() + theme(plot.title = element_text(size = 16, face = "bold"), plot.subtitle = element_text(size = 11, face = "italic"), plot.caption = element_text(size = 16, face = "bold"), legend.position = "right", legend.text = element_text(size = 11), legend.title = element_text(size = 13)) + ThemePark::theme_avatar()
+  labs(title = "Percentages of album sales (in millions) for Beyonce and Taylor Swift", subtitle = "Different countries have different percentages", x = "Artists", y = "Percentages of album sales in different counties", fill = "country", caption = "By Yan Wang") + theme_classic() + theme(plot.title = element_text(size = 16, face = "bold"), plot.subtitle = element_text(size = 11, face = "italic"), plot.caption = element_text(size = 16, face = "bold"), legend.position = "right", legend.text = element_text(size = 11), legend.title = element_text(size = 13)) + ThemePark::theme_friends()
 ```
 
 ### Part1D:
 ```{r}
+library(forcats)
+library(dplyr)
 sales8 <- sales5 %>% filter(country == "World") %>% arrange(desc(sales)) %>% mutate(title = fct_reorder(title, sales))
 ggplot(sales8, aes(x = sales, y = title, fill = artist)) + 
   geom_bar(stat = "identity") + 
-  labs(title = "Sales ranking of albums all over the world",
-       subtitle = "Dangerously in Love sold best", 
+  labs(title = "Ranking of album sales all over the world",
+       subtitle = "For Taylor, Fearless is best sold \nFor Beyonce, Dangerously in Love is best sold", 
        x = "Sales (in millions)",
-       y = "Album Title",
-       fill = "Artist") +
-  theme_classic() +
-  theme(legend.position = "right")
+       y = "Album",
+       fill = "artist") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 16, face = "bold"), plot.subtitle = element_text(size = 11, face = "italic"), legend.position = "right", legend.text = element_text(size = 11), legend.title = element_text(size = 13))
 ```
 ### Part1E
 ```{r, echo=TRUE}
@@ -76,31 +77,84 @@ ggplot(sales5, aes(x = released, y = sales, color = artist)) +
   geom_point() +
   facet_wrap(~country, nrow = 3) +
   labs(
-    title = "Sales of albums over released date",
-    subtitle = "Sales of albums for each artist showing a wive-like pattern",
+    title = "Album sales over released date",
+    subtitle = "Album sales changes in a wave-like manner",
     x = "Released data",
-    y = "Sales") +
-  theme_minimal()
+    y = "Sales (in millions)") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 16, face = "bold"), plot.subtitle = element_text(size = 11, face = "italic"), legend.position = "right", legend.text = element_text(size = 11), legend.title = element_text(size = 13))
 ```
 
 ## Part 2: Exploring sentiment of lyrics
 ### Part2A
 ```{r}
-ts_lyrics <- ts_lyrics %>% mutate(line = map(Lyrics, ~str_c(.x, collapse = ""))) 
-ts_lyrics_hello <- filter(str_detect(line, "hello"))
-
-
-filter(str_detect(line, "hello"))
-                
-hello_line_ts <- ts_lyrics_1 %>%
-  filter(str_detect(line, "hello"))
-
-print(hello_line_ts); nrow(hello_line_ts)
+library(tidytext)
+library(tidyr)
+ts_lyrics1 <- unnest_tokens(ts_lyrics, output = line, input = Lyrics, token = "lines")
+hello_ts_lyrics <- ts_lyrics1 %>% filter(str_detect(line, "hello"))
+nrow(hello_ts_lyrics)
+goodbye_ts_lyrics <- ts_lyrics1 %>% filter(str_detect(line, "goodbye"))
+nrow(goodbye_ts_lyrics)
+```
+### Part2B
+```{r, echo=TRUE}
+b_lyrics1 <- unnest_tokens(b_lyrics, output = line, input = line, token = "lines")
+hello_b_lyrics <- b_lyrics1 %>% filter(str_detect(line, "hello"))
+nrow(hello_b_lyrics)
+goodbye_b_lyrics <- b_lyrics1 %>% filter(str_detect(line, "goodbye"))
+nrow(goodbye_b_lyrics)
+```
+### Part2C
+```{r, echo=TRUE}
+b_lyrics2 <- b_lyrics %>% unnest_tokens(output = word, input = line, token = "words") %>% anti_join(stop_words)
+word_counts <- count(b_lyrics2, word, sort = TRUE)
+bing <- get_sentiments("bing")
+word_counts1 <- inner_join(word_counts, bing, by = "word")
+word_counts2 <- arrange(word_counts1, desc(n))
+top25 <- head(word_counts2, 25)
+print(top25)
+ggplot(top25, aes(x = n, y = fct_reorder(word, n), fill = sentiment)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("positive" = "yellow", "negative" = "pink")) +
+  labs(title = "Top 25 words for Beyonce lyrics", subtitle = "Love is the top 1", x = "Frequency", y = "Words") + 
+  theme_minimal() +
+  theme(plot.title = element_text(size = 16, face = "bold"), plot.subtitle = element_text(size = 11, face = "italic"), legend.position = "right", legend.text = element_text(size = 11), legend.title = element_text(size = 13))
+library(wordcloud)
+wordcloud(words = top25$word, freq = top25$n, scale = c(5, 0.5), colors = brewer.pal(12, "RdYlBu"))
 ```
 
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+### Part2D
+```{r, echo=TRUE}
+ts_lyrics2 <- ts_lyrics %>% unnest_tokens(output = word, input = Lyrics, token = "words") %>% anti_join(stop_words)
+ts_word_count <- count(ts_lyrics2, word, sort = TRUE)
+ts_word_count1 <- inner_join(ts_word_count, bing, by = "word")
+ts_word_count2 <- arrange(ts_word_count1, desc(n))
+ts_top25 <- head(ts_word_count2, 25)
+print(ts_top25)
+ggplot(ts_top25, aes(x = n, y = fct_reorder(word, n), fill = sentiment)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("positive" = "#FF4500", "negative" = "#C0C0C0")) +
+  labs(title = "Top 25 words for Taylor Swift lyrics", subtitle = "Love is the top 1", x = "Frequency", y = "Words") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 16, face = "bold"), plot.subtitle = element_text(size = 11, face = "italic"), legend.position = "right", legend.text = element_text(size = 11), legend.title = element_text(size = 13))
+wordcloud(words = ts_top25$word, freq = ts_top25$n, scale = c(5, 0.5), colors = brewer.pal(12, "PiYG"))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+### Part2E:
+```{r, echo=TRUE}
+ts_word_count3 <- ts_lyrics2 %>% group_by(Album) %>% count(word, sort = TRUE)
+afinn <- get_sentiments("afinn")
+ts_word_count4 <- left_join(ts_word_count3, afinn)
+average_value <- ts_word_count4 %>% group_by(Album) %>% summarize(average = mean(value, na.rm = TRUE))
+print(average_value)
+new <- rename(average_value, title = Album)
+newsales <- left_join(sales5, new, by = "title")
+ggplot(newsales, aes(x = released, y = average, size = sales)) + 
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "green") +
+  labs(title = "Average Sentiment Score of Taylor Swift's Albums Over Time", subtitle = "Most average socres are negative.", x = "Released date", y = "Average scores", size = "Sales (in millions)") +
+  theme_classic() +
+  theme(plot.title = element_text(size = 16, face = "bold"), plot.subtitle = element_text(size = 11, face = "italic"), legend.position = "right", legend.text = element_text(size = 11), legend.title = element_text(size = 13)) +
+  ThemePark::theme_friends()
+```
+
